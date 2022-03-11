@@ -10,3 +10,5 @@ export class SignupDto {
   @Length(8, 24)
   password: string;
 }
+
+export class SigninDto extends SignupDto {}
