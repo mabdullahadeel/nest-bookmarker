@@ -41,16 +41,19 @@ describe('App e2e', () => {
     app && (await app.close());
   });
 
-  describe('Auth', () => {
-    const signupDto: SignupDto = {
-      email: '',
-      password: '',
-    };
-    const invalidEmail = 'invalidemail@testmail.com';
-    const invalidPassword = 'not-super-secret';
-    const validEmail = 'abdadeel@testmail.com';
-    const validPassword = 'abCD123!';
+  const signupDto: SignupDto = {
+    email: '',
+    password: '',
+  };
+  const invalidEmail = 'invalidemail@testmail.com';
+  const invalidPassword = 'not-super-secret';
+  const validEmail = 'abdadeel@testmail.com';
+  const validPassword = 'abCD123!';
+  const updatedFirstName = 'Abdullah';
+  const updatedLastName = 'Adeel';
+  const updatedPassword = 'super-secret';
 
+  describe('Auth', () => {
     describe('Signup', () => {
       it('invalid email should not create user', () => {
         return pactum
@@ -167,6 +170,54 @@ describe('App e2e', () => {
             firstName: null,
             lastName: null,
           });
+      });
+    });
+
+    describe('Edit user', () => {
+      it('update users first name and last name', () => {
+        return pactum
+          .spec()
+          .patch('/users')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .withBody({
+            firstName: updatedFirstName,
+            lastName: updatedLastName,
+          })
+          .expectStatus(200)
+          .expectJsonMatch({
+            firstName: updatedFirstName,
+            lastName: updatedLastName,
+          });
+      });
+
+      it('invalid old password dont update user password', () => {
+        return pactum
+          .spec()
+          .patch('/users/me/password')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .withBody({
+            password: updatedPassword,
+            old_password: 'random',
+          })
+          .expectStatus(400);
+      });
+
+      it('update user password', () => {
+        return pactum
+          .spec()
+          .patch('/users/me/password')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .withBody({
+            password: updatedPassword,
+            old_password: signupDto.password,
+          })
+          .expectStatus(200);
       });
     });
   });
