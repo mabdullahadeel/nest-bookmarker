@@ -15,12 +15,15 @@ export class BookmarksService {
   }
 
   async getBookmark(userId: number, bookmarkId: number) {
-    return this.prismaService.bookmark.findFirst({
+    const bookmark = await this.prismaService.bookmark.findFirst({
       where: {
-        id: bookmarkId,
-        userId,
+        AND: [{ id: bookmarkId }, { userId }],
       },
     });
+
+    if (!bookmark) throw new NotFoundException('Bookmark not found');
+
+    return bookmark;
   }
 
   async createBookmark(userId: number, dto: CreateBookmarkDto) {

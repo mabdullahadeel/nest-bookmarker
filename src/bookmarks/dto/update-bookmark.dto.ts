@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class UpdateBookmarkDto {
   @IsString()
@@ -13,5 +13,6 @@ export class UpdateBookmarkDto {
   @IsString()
   @IsNotEmpty()
   @IsOptional()
+  @IsUrl()
   url?: string;
 }

@@ -5,6 +5,7 @@ import * as pactum from 'pactum';
 import { like } from 'pactum-matchers';
 import { SignupDto } from 'src/auth/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CreateBookmarkDto } from 'src/bookmarks/dto';
 
 const BASE_URL = 'http://localhost:';
 const PORT = '3030';
@@ -222,5 +223,215 @@ describe('App e2e', () => {
     });
   });
 
-  // describe('Bookmark', () => {});
+  describe('Bookmark', () => {
+    const bookmarkDto: CreateBookmarkDto = {
+      title: 'Test Bookmark',
+      url: 'https://test.com',
+      description: 'Test Bookmark Description',
+    };
+
+    describe('Create Bookmarks', () => {
+      it('should not be able to create bookmark when not logged in', () => {
+        return pactum
+          .spec()
+          .post('/bookmarks')
+          .withBody(bookmarkDto)
+          .expectStatus(401);
+      });
+
+      it('should not be able to create bookmark without title', () => {
+        return pactum
+          .spec()
+          .post('/bookmarks')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .withBody({
+            title: '',
+            url: bookmarkDto.url,
+            description: bookmarkDto.description,
+          })
+          .expectStatus(400);
+      });
+
+      it('should not be able to create bookmark without url', () => {
+        return pactum
+          .spec()
+          .post('/bookmarks')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .withBody({
+            title: bookmarkDto.title,
+            url: '',
+            description: bookmarkDto.description,
+          })
+          .expectStatus(400);
+      });
+
+      it('should not be able to create bookmark with invalid url', () => {
+        return pactum
+          .spec()
+          .post('/bookmarks')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .withBody({
+            title: bookmarkDto.title,
+            url: 'invalid-url',
+            description: bookmarkDto.description,
+          })
+          .expectStatus(400);
+      });
+
+      it('should  be able to create bookmark with with valid data', () => {
+        return pactum
+          .spec()
+          .post('/bookmarks')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .withBody(bookmarkDto)
+          .expectStatus(201)
+          .stores('create_bookmark_id', 'id');
+      });
+    });
+
+    describe('Get Bookmarks', () => {
+      it('should not be able to get all bookmarks when not logged in', () => {
+        return pactum.spec().get('/bookmarks').expectStatus(401);
+      });
+
+      it('should be able to get all bookmarks', () => {
+        return pactum
+          .spec()
+          .get('/bookmarks')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .expectStatus(200)
+          .expectJsonLength(1)
+          .expectJsonMatch([
+            {
+              id: like(1),
+              title: like('string'),
+              url: like('string'),
+              description: like('string'),
+              userId: like(1),
+              createdAt: like('string'),
+              updatedAt: like('string'),
+            },
+          ]);
+      });
+
+      it('should be able to get own bookmark by id', () => {
+        pactum
+          .spec()
+          .get('/bookmarks/$S{create_bookmark_id}')
+          .expectStatus(200)
+          .expectJsonMatch({
+            id: like(1),
+            title: like('string'),
+            url: like('string'),
+            description: like('string'),
+            userId: like(1),
+            createdAt: like('string'),
+            updatedAt: like('string'),
+          });
+      });
+
+      it('should not be able to get bookmark with invalid id', () => {
+        return pactum.spec().get('/bookmarks/101').expectStatus(401);
+      });
+    });
+
+    describe('Update bookmarks', () => {
+      it('should not be able to update bookmark when not logged in', () => {
+        return pactum
+          .spec()
+          .patch('/bookmarks/$S{create_bookmark_id}')
+          .withBody({
+            title: 'Updated Title',
+          })
+          .expectStatus(401);
+      });
+
+      it('should not be able to update bookmark with invalid id', () => {
+        return pactum
+          .spec()
+          .patch('/bookmarks/101')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .withBody({
+            title: 'Updated Title',
+          })
+          .expectStatus(404);
+      });
+
+      it('should not be able to update bookmark with invalid data', () => {
+        return pactum
+          .spec()
+          .patch('/bookmarks/$S{create_bookmark_id}')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .withBody({
+            title: '',
+          })
+          .expectStatus(400);
+      });
+
+      it('should be able to update bookmark', () => {
+        return pactum
+          .spec()
+          .patch('/bookmarks/$S{create_bookmark_id}')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .withBody({
+            title: 'Updated Title',
+          })
+          .expectStatus(200)
+          .expectJsonMatch({
+            id: like(1),
+            title: 'Updated Title',
+            url: like('string'),
+            description: like('string'),
+            userId: like(1),
+            createdAt: like('string'),
+            updatedAt: like('string'),
+          });
+      });
+    });
+
+    describe('Delete Bookmark', () => {
+      it('should not be able to delete bookmark when not logged in', () => {
+        return pactum
+          .spec()
+          .delete('/bookmarks/$S{create_bookmark_id}')
+          .expectStatus(401);
+      });
+
+      it('should not be able to delete bookmark with invalid id', () => {
+        return pactum
+          .spec()
+          .delete('/bookmarks/101')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .expectStatus(404);
+      });
+
+      it('should be able to delete bookmark', () => {
+        return pactum
+          .spec()
+          .delete('/bookmarks/$S{create_bookmark_id}')
+          .withHeaders({
+            Authorization: 'Bearer $S{user_access_token}',
+          })
+          .expectStatus(204);
+      });
+    });
+  });
 });
