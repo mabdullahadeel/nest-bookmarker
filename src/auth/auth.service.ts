@@ -1,10 +1,10 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
+import * as argon from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { SigninDto, SignupDto } from './dto';
-import * as argon from 'argon2';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -35,7 +35,7 @@ export class AuthService {
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          throw new ForbiddenException('Email already exists');
+          throw new BadRequestException('Email already exists');
         }
         throw error;
       }
@@ -49,19 +49,23 @@ export class AuthService {
       },
     });
 
-    if (!user) throw new ForbiddenException('Invalid credentials');
+    if (!user) throw new BadRequestException('Invalid credentials');
 
     const pwValid = await argon.verify(user.password_hash, dto.password);
-    if (!pwValid) throw new ForbiddenException('Invalid credentials');
+    if (!pwValid) throw new BadRequestException('Invalid credentials');
+    delete user.password_hash;
 
-    return this.assignAccessToken(user.email, user.id);
+    const accessToken = await this.assignAccessToken(user.id);
+    const refreshToken = await this.assignRefreshToken(user.id);
+
+    return {
+      user,
+      tokens: { access: accessToken, refresh: refreshToken },
+    };
   }
 
-  async assignAccessToken(
-    email: string,
-    userId: number,
-  ): Promise<{ access_token: string }> {
-    const payload = { email, sub: userId };
+  async assignAccessToken(userId: number): Promise<string> {
+    const payload = { sub: userId };
     const accessTokenSecret = this.configService.get('ACCESS_TOKEN_SECRET');
 
     const token = await this.jwtService.signAsync(payload, {
@@ -69,8 +73,18 @@ export class AuthService {
       expiresIn: '10m',
     });
 
-    return {
-      access_token: token,
-    };
+    return token;
+  }
+
+  async assignRefreshToken(userId: number): Promise<string> {
+    const payload = { sub: userId };
+    const accessTokenSecret = this.configService.get('REFRESH_TOKEN_SECRET');
+
+    const token = await this.jwtService.signAsync(payload, {
+      secret: accessTokenSecret,
+      expiresIn: '7d',
+    });
+
+    return token;
   }
 }
